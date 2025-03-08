@@ -1,5 +1,5 @@
-use sdl2::{self, mixer::{Channel, AUDIO_S16LSB, DEFAULT_CHANNELS}};
-use std::{collections::HashMap, process::exit};
+use sdl2::{self, mixer::{Channel, AUDIO_F32, DEFAULT_CHANNELS}, sys::SDL_Delay};
+use std::{collections::HashMap, io::Write, process::exit};
 use std::sync::{Arc, Mutex};
 use std::time::{Instant, Duration};
 use sdl2::mixer::LoaderRWops;
@@ -108,7 +108,7 @@ fn main() -> Result<(), String> {
     let mut event_pump = sdl_context.event_pump().unwrap();
 
     let _mixer = sdl2::mixer::init(sdl2::mixer::InitFlag::all()).unwrap();
-    sdl2::mixer::open_audio(44100, AUDIO_S16LSB, DEFAULT_CHANNELS, 1024).unwrap();
+    sdl2::mixer::open_audio(44100, AUDIO_F32, DEFAULT_CHANNELS, 2048).unwrap();
     sdl2::mixer::allocate_channels(20);
     sdl2::mixer::Channel::all().set_volume(100);
 
@@ -117,18 +117,19 @@ fn main() -> Result<(), String> {
     std::thread::spawn(move || {
         let audio_channel = main_audio_rx;
         let mut preloaded_chunks = HashMap::new();
+        let mut max_channels_used = 0;
         loop {
             let note = audio_channel.recv().unwrap();
-            println!("{:?}", note);
             let chunk = preloaded_chunks.entry(note).or_insert_with(|| {
                 sdl2::rwops::RWops::from_bytes(note.to_bytes())
                     .unwrap()
                     .load_wav()
                     .unwrap()
             });
-            println!("buffered");
             Channel::all().play(chunk, 0).unwrap();
-            println!("played");
+            max_channels_used = max_channels_used.max(sdl2::mixer::get_playing_channels_number());
+            print!("\rMax channels used: {} Playing channels: {}", max_channels_used, sdl2::mixer::get_playing_channels_number());
+            std::io::stdout().flush().unwrap();
         }
     });
 
@@ -210,7 +211,9 @@ fn main() -> Result<(), String> {
             break 'running;
         }
         canvas.present();
-        // std::thread::sleep(Duration::from_secs_f32(1.0/60.0)); // Roughly 60 FPS.
+        unsafe {
+            SDL_Delay(Duration::from_secs_f32(1.0/60.0).as_millis() as u32);
+        }
     }
     exit(0);
 }
