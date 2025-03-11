@@ -16,6 +16,10 @@ jobs:
 
     steps:
     - uses: actions/checkout@v4
+    - name: install cargo-vcpkg
+      run: cargo install cargo-vcpkg
+    - name: install deps
+      run: cargo vcpkg -v build
     - name: Build
       run: cargo build --verbose -r
     - uses: fnkr/github-action-ghr@v1
