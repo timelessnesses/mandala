@@ -16,6 +16,8 @@ jobs:
 
     steps:
     - uses: actions/checkout@v4
+    - name: install required dependencies for libxcrypt
+      run: sudo apt-get install libtool libltdl-dev
     - name: install cargo-vcpkg
       run: cargo install cargo-vcpkg
     - name: install deps
